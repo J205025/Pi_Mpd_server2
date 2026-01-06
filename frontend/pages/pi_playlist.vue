@@ -104,7 +104,7 @@
                     }">
                 {{ playlist.playlist }}
               </span>
-              <div v-if="playlist.playlist !== '我的最愛' && playlist.playlist !== '定期播放'" class="flex flex-wrap justify-end ml-auto gap-2">
+              <div v-if="playlist.playlist !== '我的最愛' && playlist.playlist !== '定期播放'" class="flex flex-col sm:flex-row justify-end ml-auto gap-y-2 sm:gap-x-2">
                 <button @click="promptRenamePlaylist(playlist.playlist)" class="bg-blue-500 text-white py-1 px-3 rounded-lg text-sm hover:bg-blue-600 transition duration-300">
                   更名
                 </button>

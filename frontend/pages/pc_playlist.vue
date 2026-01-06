@@ -75,11 +75,11 @@
                 }">
                 {{ playlistName }}
               </span>
-              <div class="flex ml-auto" v-if="playlistName !== '我的最愛'">
+              <div class="flex flex-col sm:flex-row ml-auto gap-y-2 sm:gap-x-2" v-if="playlistName !== '我的最愛'">
                 <button @click="promptRenamePlaylist(playlistName)" class="bg-blue-500 text-white py-1 px-3 rounded-lg text-sm hover:bg-blue-600 transition duration-300">
                   更名
                 </button>
-                <button @click="deletePlaylist(playlistName)" class="bg-red-500 text-white py-1 px-3 rounded-lg text-sm hover:bg-red-600 transition duration-300 mr-2">
+                <button @click="deletePlaylist(playlistName)" class="bg-red-500 text-white py-1 px-3 rounded-lg text-sm hover:bg-red-600 transition duration-300">
                   刪除
                 </button>
               </div>
