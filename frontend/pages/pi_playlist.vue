@@ -239,13 +239,13 @@
             <div class="flex-grow overflow-y-auto border border-gray-200 rounded-lg p-4">
                 <button @click="goUpDirectory" :disabled="!currentPath"
                     class="mb-4 bg-gray-200 text-gray-700 py-1 px-3 rounded-lg hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400">
-                    ../
+                    上一層
                 </button>
                 <p v-if="isLoading" class="text-gray-500">Loading files...</p>
                 <ul v-else-if="fileBrowserItems.length > 0">
                     <li v-for="item in fileBrowserItems" :key="item.path"
                         class="flex items-center p-1 rounded-md"
-                        :class="{ 'hover:bg-gray-200': true, 'bg-green-400': selectedInBrowser.some(it => it.path === item.path) }"
+                        :class="{ 'hover:bg-gray-200': true, 'bg-blue-400': selectedInBrowser.some(it => it.path === item.path) }"
                         @click="handleItemClick(item)">
                         <span
                             class="flex-grow cursor-pointer">
