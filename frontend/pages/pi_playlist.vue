@@ -44,7 +44,7 @@
           >
             加入YouTube網址
           </button-->
-          <button @click="autoDownloadPodcast()" class="bg-purple-600 text-white font-bold py-3 px-6 rounded-lg text-m hover:bg-purple-700 transition duration-300">下載播客</button>
+          <button @click="autoDownloadPodcast()" class="bg-purple-600 text-white py-3 px-6 rounded-lg text-m hover:bg-purple-700 transition duration-300">下載播客</button>
         </div>
 
         <div v-if="errorMessage" class="mt-4 text-red-600 bg-red-100 p-3 rounded-lg">
@@ -230,39 +230,40 @@
       </div>
 
       <!-- File Browser Dialog -->
-        <div v-if="showFileBrowser" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
-            <div class="bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-2/3 lg:w-1/2 max-h-[80vh] flex flex-col">
-                <h3 class="text-xl font-bold mb-4">Browse Server Files:</h3>
-                <div class="mb-2 p-2 bg-gray-100 rounded-md text-sm text-gray-700 break-words">
-                    Current Path: /{{ currentPath }}
-                </div>
-                <div class="flex-grow overflow-y-auto border border-gray-200 rounded-lg p-4">
-                    <button @click="goUpDirectory" :disabled="!currentPath"
-                        class="mb-4 bg-gray-200 text-gray-700 py-1 px-3 rounded-lg hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400">
-                        ../
-                    </button>
-                    <p v-if="isLoading" class="text-gray-500">Loading files...</p>
-                    <ul v-else-if="fileBrowserItems.length > 0">
-                                                    <li v-for="item in fileBrowserItems" :key="item.path"
-                                                        class="flex items-center p-1 rounded-md"
-                                                        :class="{ 'hover:bg-gray-200': true, 'bg-blue-200': selectedFileBrowserItems.some(it => it.path === item.path) }">
-                                                        <input type="checkbox" v-model="selectedFileBrowserItems" :value="item" class="mr-3" @click.stop>
-                                                        <span @click="item.type === 'directory' ? browseDirectory(item.path) : null"
-                                                            class="flex-grow cursor-pointer">
-                                                            <span class="mr-2">{{ item.type === 'directory' ? '📁' : '🎵' }}</span>
-                                                            {{ item.name }}
-                                                        </span>
-                                                    </li>                    </ul>
-                    <p v-else class="text-gray-500">No files found or directory is empty.</p>
-                </div>
-                <div class="flex justify-end gap-4 mt-4">
-                    <button @click="showFileBrowser = false"
-                        class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
-                    <button @click="addSelectedFilesToGeneratedList"
-                        class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Add Selected</button>
-                </div>
+      <div v-if="showFileBrowser" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-2/3 lg:w-1/2 max-h-[80vh] flex flex-col">
+            <h3 class="text-xl font-bold mb-4">Browse Server Files:</h3>
+            <div class="mb-2 p-2 bg-gray-100 rounded-md text-sm text-gray-700 break-words">
+                Current Path: /{{ currentPath }}
+            </div>
+            <div class="flex-grow overflow-y-auto border border-gray-200 rounded-lg p-4">
+                <button @click="goUpDirectory" :disabled="!currentPath"
+                    class="mb-4 bg-gray-200 text-gray-700 py-1 px-3 rounded-lg hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400">
+                    ../
+                </button>
+                <p v-if="isLoading" class="text-gray-500">Loading files...</p>
+                <ul v-else-if="fileBrowserItems.length > 0">
+                    <li v-for="item in fileBrowserItems" :key="item.path"
+                        class="flex items-center p-1 rounded-md"
+                        :class="{ 'hover:bg-gray-200': true, 'bg-green-400': selectedInBrowser.some(it => it.path === item.path) }"
+                        @click="handleItemClick(item)">
+                        <span
+                            class="flex-grow cursor-pointer">
+                            <span class="mr-2">{{ item.type === 'directory' ? '📁' : '🎵' }}</span>
+                            {{ item.name }}
+                        </span>
+                    </li>
+                </ul>
+                <p v-else class="text-gray-500">No files found or directory is empty.</p>
+            </div>
+            <div class="flex justify-end gap-4 mt-4">
+                <button @click="cancelFileBrowser"
+                    class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                <button @click="confirmFileBrowserSelection"
+                    class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Add Files</button>
             </div>
         </div>
+      </div>
     </main>
 
     <footer />
@@ -293,8 +294,9 @@ const showSaveSelectionDialog = ref(false);
 const newPlaylistFromSelectionName = ref('');
 const showFileBrowser = ref(false);
 const fileBrowserItems = ref([]);
-const selectedFileBrowserItems = ref([]);
 const currentPath = ref('');
+const selectedInBrowser = ref([]);
+let clickTimer = null;
 
 const generatedFiles = ref([]);
 const filesToSave = ref([]);
@@ -475,6 +477,7 @@ const openFileBrowser = () => {
 const browseDirectory = async (path) => {
     isLoading.value = true;
     errorMessage.value = '';
+    selectedInBrowser.value = [];
     try {
         const response = await fetch(`${apiBase}/pi_mpd_browse/${encodeURIComponent(path)}`);
         if (!response.ok) throw new Error('Failed to browse files');
@@ -516,14 +519,34 @@ const getFilesInDirectory = async (directoryPath) => {
   return files;
 };
 
-const addSelectedFilesToGeneratedList = async () => {
-    if (selectedFileBrowserItems.value.length === 0) {
-        alert('No files selected.');
-        return;
+const handleItemClick = (item) => {
+  if (clickTimer) {
+    clearTimeout(clickTimer);
+    clickTimer = null;
+    if (item.type === 'directory') {
+      browseDirectory(item.path);
     }
+  } else {
+    clickTimer = setTimeout(() => {
+      addOrRemoveFromSelection(item);
+      clickTimer = null;
+    }, 250);
+  }
+};
 
+const addOrRemoveFromSelection = (item) => {
+    const isSelected = selectedInBrowser.value.some(i => i.path === item.path);
+    if (isSelected) {
+        selectedInBrowser.value = selectedInBrowser.value.filter(i => i.path !== item.path);
+    } else {
+        selectedInBrowser.value.push(item);
+    }
+};
+
+const confirmFileBrowserSelection = async () => {
+    isLoading.value = true;
     const newFilesToAdd = [];
-    for (const item of selectedFileBrowserItems.value) {
+    for (const item of selectedInBrowser.value) {
         if (item.type === 'file') {
             newFilesToAdd.push(item.path);
         } else if (item.type === 'directory') {
@@ -531,10 +554,21 @@ const addSelectedFilesToGeneratedList = async () => {
             newFilesToAdd.push(...filesInDir);
         }
     }
-    generatedFiles.value = generatedFiles.value.concat(newFilesToAdd);
+    // Add to generatedFiles, avoiding duplicates
+    newFilesToAdd.forEach(file => {
+      if (!generatedFiles.value.includes(file)) {
+        generatedFiles.value.push(file);
+      }
+    });
 
     showFileBrowser.value = false;
-    selectedFileBrowserItems.value = [];
+    selectedInBrowser.value = []; // Clear visual selections in the browser modal
+    isLoading.value = false;
+};
+
+const cancelFileBrowser = () => {
+  showFileBrowser.value = false;
+  selectedInBrowser.value = []; // Clear visual selections in the browser modal
 };
 
 const toggleSelectionForGeneratedFiles = (file) => {
