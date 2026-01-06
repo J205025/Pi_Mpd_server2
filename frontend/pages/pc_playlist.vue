@@ -165,7 +165,7 @@
       <!-- File Browser Dialog -->
       <div v-if="showFileBrowser" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
         <div class="bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-2/3 lg:w-1/2 max-h-[80vh] flex flex-col">
-            <h3 class="text-xl font-bold mb-4">Browse Server Files</h3>
+            <h3 class="text-xl font-bold mb-4">Browse Server Files:</h3>
             <div class="mb-2 p-2 bg-gray-100 rounded-md text-sm text-gray-700 break-words">
                 Current Path: /{{ currentPath }}
             </div>
@@ -178,9 +178,9 @@
                 <ul v-else-if="fileBrowserItems.length > 0">
                     <li v-for="item in fileBrowserItems" :key="item.path"
                         class="flex items-center p-1 rounded-md"
-                        :class="{ 'hover:bg-gray-200': true, 'bg-blue-200': selectedFileBrowserItems.some(it => it.path === item.path) }">
-                        <input type="checkbox" v-model="selectedFileBrowserItems" :value="item" class="mr-3" @click.stop>
-                        <span @click="item.type === 'directory' ? browseDirectory(item.path) : null"
+                        :class="{ 'hover:bg-gray-200': true, 'bg-green-400': selectedInBrowser.some(it => it.path === item.path) }"
+                        @click="handleItemClick(item)">
+                        <span 
                             class="flex-grow cursor-pointer">
                             <span class="mr-2">{{ item.type === 'directory' ? '📁' : '🎵' }}</span>
                             {{ item.name }}
@@ -190,10 +190,10 @@
                 <p v-else class="text-gray-500">No files found or directory is empty.</p>
             </div>
             <div class="flex justify-end gap-4 mt-4">
-                <button @click="showFileBrowser = false"
+                <button @click="cancelFileBrowser"
                     class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
-                <button @click="addSelectedFilesToGeneratedList"
-                    class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Add Selected</button>
+                <button @click="confirmFileBrowserSelection"
+                    class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Add Files</button>
             </div>
         </div>
       </div>
@@ -235,8 +235,9 @@ const editModeForPlaylist = ref(false); // To enable/disable editing mode for pl
 // File Browser state
 const showFileBrowser = ref(false);
 const fileBrowserItems = ref([]);
-const selectedFileBrowserItems = ref([]);
 const currentPath = ref('');
+const selectedInBrowser = ref([]);
+let clickTimer = null;
 
 
 const sortedPlaylists = computed(() => {
@@ -713,94 +714,124 @@ const autoDownloadPodcast = async () => {
   }
 };
 
-const openFileBrowser = () => {
-    showFileBrowser.value = true;
-    browseDirectory('');
+const handleItemClick = (item) => {
+  if (clickTimer) {
+    clearTimeout(clickTimer);
+    clickTimer = null;
+    if (item.type === 'directory') {
+      browseDirectory(item.path);
+    }
+  } else {
+    clickTimer = setTimeout(() => {
+      addOrRemoveFromSelection(item);
+      clickTimer = null;
+    }, 250);
+  }
 };
 
-const browseDirectory = async (path) => {
-    isLoading.value = true;
-    errorMessage.value = '';
-    try {
+    const addOrRemoveFromSelection = (item) => {
+        const isSelected = selectedInBrowser.value.some(i => i.path === item.path);
+        if (isSelected) {
+            selectedInBrowser.value = selectedInBrowser.value.filter(i => i.path !== item.path);
+        } else {
+            selectedInBrowser.value.push(item);
+        }
+    };
+
+
+    const openFileBrowser = () => {
+        showFileBrowser.value = true;
+        browseDirectory('');
+    };
+
+    const browseDirectory = async (path) => {
+        isLoading.value = true;
+        errorMessage.value = '';
+        fileList.value = []; 
+        selectedInBrowser.value = [];
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+              throw new Error("Authentication token is not available. Please log in.");
+            }
+            const response = await fetch(`${apiBase}/pc_browse/${encodeURIComponent(path)}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Failed to browse files');
+            fileBrowserItems.value = await response.json();
+            currentPath.value = path;
+        } catch (error) {
+            errorMessage.value = error.message;
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
+    const goUpDirectory = () => {
+        if (!currentPath.value) return;
+        const parentPath = currentPath.value.substring(0, currentPath.value.lastIndexOf('/'));
+        browseDirectory(parentPath);
+    };
+
+    const getFilesInDirectory = async (directoryPath) => {
+      try {
         const token = localStorage.getItem('authToken');
         if (!token) {
           throw new Error("Authentication token is not available. Please log in.");
         }
-        const response = await fetch(`${apiBase}/pc_browse/${encodeURIComponent(path)}`, {
+        const response = await fetch(`${apiBase}/pc_browse/${encodeURIComponent(directoryPath)}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!response.ok) throw new Error('Failed to browse files');
-        fileBrowserItems.value = await response.json();
-        currentPath.value = path;
-    } catch (error) {
+        if (!response.ok) throw new Error(`Failed to browse directory ${directoryPath}`);
+        const items = await response.json();
+        
+        let files = [];
+        for (const item of items) {
+            if (item.type === 'file') {
+                files.push(item.path);
+            } else if (item.type === 'directory') {
+                // Recursively get files from subdirectory
+                const subDirFiles = await getFilesInDirectory(item.path);
+                files = files.concat(subDirFiles);
+            }
+        }
+        return files;
+      } catch (error) {
+        console.error(`Error getting files from directory ${directoryPath}:`, error);
         errorMessage.value = error.message;
-    } finally {
-        isLoading.value = false;
-    }
-};
-
-const goUpDirectory = () => {
-    if (!currentPath.value) return;
-    const parentPath = currentPath.value.substring(0, currentPath.value.lastIndexOf('/'));
-    browseDirectory(parentPath);
-};
-
-const getFilesInDirectory = async (directoryPath) => {
-  try {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      throw new Error("Authentication token is not available. Please log in.");
-    }
-    const response = await fetch(`${apiBase}/pc_browse/${encodeURIComponent(directoryPath)}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!response.ok) throw new Error(`Failed to browse directory ${directoryPath}`);
-    const items = await response.json();
-    
-    let files = [];
-    for (const item of items) {
-        if (item.type === 'file') {
-            files.push(item.path);
-        } else if (item.type === 'directory') {
-            // Recursively get files from subdirectory
-            const subDirFiles = await getFilesInDirectory(item.path);
-            files = files.concat(subDirFiles);
-        }
-    }
-    return files;
-  } catch (error) {
-    console.error(`Error getting files from directory ${directoryPath}:`, error);
-    errorMessage.value = error.message;
-    return [];
-  }
-};
-
-const addSelectedFilesToGeneratedList = async () => {
-    if (selectedFileBrowserItems.value.length === 0) {
-        alert('No files selected.');
-        return;
-    }
-    isLoading.value = true;
-    const newFilesToAdd = [];
-    for (const item of selectedFileBrowserItems.value) {
-        if (item.type === 'file') {
-            newFilesToAdd.push(item.path);
-        } else if (item.type === 'directory') {
-            const filesInDir = await getFilesInDirectory(item.path);
-            newFilesToAdd.push(...filesInDir);
-        }
-    }
-    // Add to fileList, avoiding duplicates
-    newFilesToAdd.forEach(file => {
-      if (!fileList.value.includes(file)) {
-        fileList.value.push(file);
+        return [];
       }
-    });
+    };
 
-    showFileBrowser.value = false;
-    selectedFileBrowserItems.value = [];
-    isLoading.value = false;
-};
+    const confirmFileBrowserSelection = async () => {
+        isLoading.value = true;
+        const newFilesToAdd = [];
+        for (const item of selectedInBrowser.value) {
+            if (item.type === 'file') {
+                newFilesToAdd.push(item.path);
+            } else if (item.type === 'directory') {
+                const filesInDir = await getFilesInDirectory(item.path);
+                newFilesToAdd.push(...filesInDir);
+            }
+        }
+        // Add to fileList, avoiding duplicates
+        newFilesToAdd.forEach(file => {
+          if (!fileList.value.includes(file)) {
+            fileList.value.push(file);
+          }
+        });
+
+        showFileBrowser.value = false;
+        selectedInBrowser.value = []; // Clear visual selections in the browser modal
+        isLoading.value = false;
+    };
+
+    const cancelFileBrowser = () => {
+      showFileBrowser.value = false;
+      fileList.value = []; // Clear current selections in the main list
+      selectedInBrowser.value = []; // Clear visual selections in the browser modal
+    };
+
 
 </script>
 

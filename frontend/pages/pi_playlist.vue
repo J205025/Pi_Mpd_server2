@@ -232,7 +232,7 @@
       <!-- File Browser Dialog -->
         <div v-if="showFileBrowser" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
             <div class="bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-2/3 lg:w-1/2 max-h-[80vh] flex flex-col">
-                <h3 class="text-xl font-bold mb-4">Browse Server Files</h3>
+                <h3 class="text-xl font-bold mb-4">Browse Server Files:</h3>
                 <div class="mb-2 p-2 bg-gray-100 rounded-md text-sm text-gray-700 break-words">
                     Current Path: /{{ currentPath }}
                 </div>
