@@ -28,7 +28,21 @@
             <NuxtLink :to="isLoggedIn ? '/pi_playlist' : '/'" class="block px-4 py-2 text-gray-300 hover:bg-gray-600 hover:text-white transition duration-300" @click="closeDropdowns">音響歌單</NuxtLink>
           </div>
         </div>
-        
+
+                <div class="relative">
+          <button @click="togglePodcastDropdown" class="text-gray-300 hover:text-white transition duration-300 flex items-center">
+            Podcast
+            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </button>
+          <div v-if="isPodcastDropdownOpen" @mouseleave="closeDropdowns" class="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-gray-700 z-10">
+            <NuxtLink :to="isLoggedIn ? '/podcast/https%3A%2F%2Ffeeds.simplecast.com%2F54nAGcIl' : '/'" class="block px-4 py-2 text-gray-300 hover:bg-gray-600 hover:text-white transition duration-300" @click="closeDropdowns">Daily</NuxtLink>
+            <NuxtLink :to="isLoggedIn ? '/podcast/https%3A%2F%2Faccess.acast.com%2Frss%2Fec380acc-fe13-46a0-991f-a1e508d126f8' : '/'" class="block px-4 py-2 text-gray-300 hover:bg-gray-600 hover:text-white transition duration-300" @click="closeDropdowns">Economist</NuxtLink>
+            <NuxtLink :to="isLoggedIn ? '/podcast/https%3A%2F%2Ffeeds.megaphone.fm%2FWMHY2007701094' : '/'" class="block px-4 py-2 text-gray-300 hover:bg-gray-600 hover:text-white transition duration-300" @click="closeDropdowns">CNN 5 Things</NuxtLink>
+            <NuxtLink :to="isLoggedIn ? '/podcast/https%3A%2F%2Fpodcastfeeds.nbcnews.com%2Fnbc-meet-the-press' : '/'" class="block px-4 py-2 text-gray-300 hover:bg-gray-600 hover:text-white transition duration-300" @click="closeDropdowns">Meet the Press</NuxtLink>
+          </div>
+        </div>
+
+
         <div class="flex-grow"></div>
 
         <template v-if="isLoggedIn">
@@ -51,6 +65,7 @@
       <NuxtLink :to="isLoggedIn ? '/pc_playlist' : '/'" class="block text-gray-300 hover:text-white py-2 px-4">電腦歌單</NuxtLink> 
       <NuxtLink :to="isLoggedIn ? '/piplayer' : '/'" class="block text-gray-300 hover:text-white py-2 px-4">音響播放</NuxtLink>
       <NuxtLink :to="isLoggedIn ? '/pi_playlist' : '/'" class="block text-gray-300 hover:text-white py-2 px-4">音響歌單</NuxtLink>      
+      <NuxtLink :to="isLoggedIn ? '/castlist' : '/'" class="block text-gray-300 hover:text-white py-2 px-4">Podcast</NuxtLink>
       <template v-if="isLoggedIn">
         <NuxtLink to="/userinfo" class="block text-gray-300 hover:text-white py-2 px-4">Welcome, {{ currentUser.toUpperCase() }}</NuxtLink>
         <button @click="handleLogout" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
@@ -73,6 +88,8 @@ const isMobileMenuOpen = ref(false);
 // New state for dropdowns
 const isPcDropdownOpen = ref(false);
 const isPiDropdownOpen = ref(false);
+const isPodcastDropdownOpen = ref(false);
+
 
 // Authentication state
 const isLoggedIn = ref(false);
@@ -86,20 +103,29 @@ const toggleMobileMenu = () => {
 const closeDropdowns = () => {
   isPcDropdownOpen.value = false;
   isPiDropdownOpen.value = false;
+  isPodcastDropdownOpen.value = false;
 }
 
 const togglePcDropdown = () => {
   isPcDropdownOpen.value = !isPcDropdownOpen.value;
   // Close the other dropdown when this one opens
   isPiDropdownOpen.value = false;
+  isPodcastDropdownOpen.value = false;
 };
 
 const togglePiDropdown = () => {
   isPiDropdownOpen.value = !isPiDropdownOpen.value;
   // Close the other dropdown when this one opens
   isPcDropdownOpen.value = false;
+  isPodcastDropdownOpen.value = false;
 };
 
+const togglePodcastDropdown = () => {
+  isPodcastDropdownOpen.value = !isPodcastDropdownOpen.value;
+  // Close the other dropdowns when this one opens
+  isPcDropdownOpen.value = false;
+  isPiDropdownOpen.value = false;
+};
 
 // Check authentication status
 const checkAuthStatus = async () => {

@@ -1,74 +1,80 @@
 <template>
-  <div class="container mx-auto p-4">
-    <div v-if="pending" class="text-center text-gray-500">Loading podcast...</div>
-    <div v-else-if="error" class="text-center text-red-500">Error loading podcast: {{ error.message }}</div>
-    <div v-else-if="podcastData && podcastData.feed_info">
-      <div class="mb-8 text-center">
-        <img
-          v-if="podcastData.feed_info.image"
-          :src="podcastData.feed_info.image"
-          :alt="podcastData.feed_info.title"
-          class="mx-auto h-48 w-48 object-cover rounded-lg shadow-md mb-4"
-        />
-        <h1 class="text-4xl font-bold text-gray-800 mb-2">{{ podcastData.feed_info.title }}</h1>
-        <p class="text-lg text-gray-600 mb-4">{{ podcastData.feed_info.description }}</p>
-        <a
-          v-if="podcastData.feed_info.link"
-          :href="podcastData.feed_info.link"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-blue-500 hover:underline"
-        >
-          Visit Podcast Website
-        </a>
-      </div>
+  <div class="bg-gray-100 font-sans leading-normal tracking-normal min-h-screen dark:bg-gray-900">
+    <navbar />
+    <main class="container mx-auto p-4">
+      <div v-if="pending" class="text-center text-gray-500">Loading podcast...</div>
+      <div v-else-if="error" class="text-center text-red-500">Error loading podcast: {{ error.message }}</div>
+      <div v-else-if="podcastData && podcastData.feed_info">
+        <div class="mb-8 text-center">
+          <img
+            v-if="podcastData.feed_info.image"
+            :src="podcastData.feed_info.image"
+            :alt="podcastData.feed_info.title"
+            class="mx-auto h-48 w-48 object-cover rounded-lg shadow-md mb-4"
+          />
+          <h1 class="text-4xl font-bold text-gray-800 mb-2">{{ podcastData.feed_info.title }}</h1>
+          <p class="text-lg text-gray-600 mb-4">{{ podcastData.feed_info.description }}</p>
+          <a
+            v-if="podcastData.feed_info.link"
+            :href="podcastData.feed_info.link"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-blue-500 hover:underline"
+          >
+            Visit Podcast Website
+          </a>
+        </div>
 
-      <h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Episodes</h2>
-      <div class="space-y-6">
-        <div
-          v-for="episode in podcastData.episodes"
-          :key="episode.id"
-          class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200"
-        >
-          <h3 class="text-2xl font-semibold text-gray-700 mb-2">{{ episode.title }}</h3>
-          <p class="text-gray-500 text-sm mb-3">Published: {{ formatDate(episode.published) }}</p>
-          <div v-if="episode.summary" class="text-gray-700 mb-4" v-html="episode.summary"></div>
-          <div v-else-if="episode.description" class="text-gray-700 mb-4" v-html="episode.description"></div>
+        <h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Episodes</h2>
+        <div class="space-y-6">
+          <div
+            v-for="episode in podcastData.episodes"
+            :key="episode.id"
+            class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200"
+          >
+            <h3 class="text-2xl font-semibold text-gray-700 mb-2">{{ episode.title }}</h3>
+            <p class="text-gray-500 text-sm mb-3">Published: {{ formatDate(episode.published) }}</p>
+            <div v-if="episode.summary" class="text-gray-700 mb-4" v-html="episode.summary"></div>
+            <div v-else-if="episode.description" class="text-gray-700 mb-4" v-html="episode.description"></div>
 
-          <div v-if="episode.image" class="mb-4">
-            <img :src="episode.image" :alt="episode.title" class="max-w-xs h-auto rounded-md shadow-sm" />
-          </div>
+            <div v-if="episode.image" class="mb-4">
+              <img :src="episode.image" :alt="episode.title" class="max-w-xs h-auto rounded-md shadow-sm" />
+            </div>
 
-          <div v-if="episode.audio_url" class="mb-4">
-            <audio controls class="w-full">
-              <source :src="episode.audio_url" :type="episode.audio_type || 'audio/mpeg'" />
-              Your browser does not support the audio element.
-            </audio>
-          </div>
+            <div v-if="episode.audio_url" class="mb-4">
+              <audio controls preload="none" class="w-full">
+                <source :src="episode.audio_url" :type="episode.audio_type || 'audio/mpeg'" />
+                Your browser does not support the audio element.
+              </audio>
+            </div>
 
-          <div class="flex items-center space-x-4 text-gray-600">
-            <span v-if="episode.duration">Duration: {{ formatDuration(episode.duration) }}</span>
-            <a
-              v-if="episode.link"
-              :href="episode.link"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-blue-500 hover:underline"
-            >
-              Show Notes
-            </a>
+            <div class="flex items-center space-x-4 text-gray-600">
+              <span v-if="episode.duration">Duration: {{ formatDuration(episode.duration) }}</span>
+              <a
+                v-if="episode.link"
+                :href="episode.link"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-blue-500 hover:underline"
+              >
+                Show Notes
+              </a>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <div v-else class="text-center text-gray-500">No podcast data available.</div>
+      <div v-else class="text-center text-gray-500">No podcast data available.</div>
+    </main>
+    <footer />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
-import { ref, watch } from 'vue';
-import { useRuntimeConfig } from '#app';
+import { useRoute, useRouter } from 'vue-router';
+import { ref, watch, onMounted } from 'vue';
+import { useRuntimeConfig, useAsyncData } from '#app';
+import navbar from '~/components/navbar.vue';
+import footer from '~/components/footer.vue';
 
 interface Episode {
   id: string;
@@ -97,41 +103,35 @@ interface PodcastData {
 }
 
 const route = useRoute();
-const podcastData = ref<PodcastData | null>(null);
-const pending = ref(true);
-const error = ref<Error | null>(null);
+const router = useRouter();
 const config = useRuntimeConfig();
 
-const fetchPodcast = async (feedUrl: string) => {
-  pending.value = true;
-  error.value = null;
-  podcastData.value = null;
+onMounted(() => {
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) {
+    router.push('/login');
+  }
+});
 
-  try {
-    // Decode the URL parameter to get the actual feed URL
+const { data: podcastData, pending, error } = await useAsyncData<PodcastData>(
+  'podcast',
+  async () => {
+    const feedUrl = route.params.feedUrl as string;
+    if (!feedUrl) {
+      return null;
+    }
     const decodedFeedUrl = decodeURIComponent(feedUrl);
-    const response = await fetch(`${config.public.apiBase}/api/podcast_feed?feed_url=${encodeURIComponent(decodedFeedUrl)}`);
+    const response = await fetch(`${config.public.apiBase}/api/podcast_feed?feed_url=${encodeURIComponent(decodedFeedUrl)}&limit=2`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await response.json();
-    if (data && data.episodes) {
-      data.episodes = data.episodes.slice(0, 10);
-    }
-    podcastData.value = data;
-  } catch (err: any) {
-    error.value = err;
-  } finally {
-    pending.value = false;
+    return response.json();
+  },
+  {
+    watch: [() => route.params.feedUrl]
   }
-};
+);
 
-// Watch for changes in the feedUrl parameter
-watch(() => route.params.feedUrl, (newFeedUrl) => {
-  if (newFeedUrl) {
-    fetchPodcast(newFeedUrl as string);
-  }
-}, { immediate: true });
 
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A';

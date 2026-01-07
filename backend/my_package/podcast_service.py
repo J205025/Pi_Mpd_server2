@@ -1,12 +1,13 @@
 import feedparser
 from typing import List, Dict
 
-def parse_rss_feed(feed_url: str) -> Dict:
+def parse_rss_feed(feed_url: str, limit: int = None) -> Dict:
     """
     Fetches and parses an RSS feed from the given URL.
 
     Args:
         feed_url: The URL of the RSS feed.
+        limit: The maximum number of episodes to return.
 
     Returns:
         A dictionary containing feed information and a list of episodes.
@@ -25,6 +26,9 @@ def parse_rss_feed(feed_url: str) -> Dict:
 
     episodes = []
     for entry in feed.entries:
+        if limit is not None and len(episodes) >= limit:
+            break
+        
         episode = {
             "id": entry.get("id") or entry.get("guid"),
             "title": entry.get("title"),

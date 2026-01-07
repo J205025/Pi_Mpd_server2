@@ -2,6 +2,8 @@
 # This script creates a FastAPI application to expose API endpoints
 # for controlling the Music Player Daemon (MPD).
 import os, io, json, uvicorn, subprocess, asyncio
+from functools import lru_cache
+from cachetools import TTLCache
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
@@ -30,7 +32,6 @@ get_password_hash, verify_password, create_access_token,
 )
 import my_package.cron_service as cron_service
 from my_package.podcast_service import parse_rss_feed
-
 # ----------------------------------------------
 music_Basefolder = "/home/ubuntu/Music/"
 music_Type = [] # Will be populated at startup
@@ -779,13 +780,22 @@ async def download_podcast(current_user: User = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
+# Cache for podcast feeds (30 minutes TTL)
+podcast_cache = TTLCache(maxsize=100, ttl=1800)
+
 @app.get("/api/podcast_feed")
-async def get_podcast_feed(feed_url: str):
+async def get_podcast_feed(feed_url: str, limit: Optional[int] = None):
     """
     Fetches and parses an RSS feed from the given URL and returns structured data.
+    Uses a cache to avoid re-fetching the same feed excessively.
     """
+    cache_key = f"{feed_url}_{limit}"
+    if cache_key in podcast_cache:
+        return podcast_cache[cache_key]
+    
     try:
-        parsed_data = parse_rss_feed(feed_url)
+        parsed_data = parse_rss_feed(feed_url, limit=limit)
+        podcast_cache[cache_key] = parsed_data
         return parsed_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error parsing RSS feed: {e}")
