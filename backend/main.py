@@ -29,6 +29,7 @@ get_password_hash, verify_password, create_access_token,
     ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 )
 import my_package.cron_service as cron_service
+from my_package.podcast_service import parse_rss_feed
 
 # ----------------------------------------------
 music_Basefolder = "/home/ubuntu/Music/"
@@ -777,6 +778,17 @@ async def download_podcast(current_user: User = Depends(get_current_user)):
         return {"message": "Podcast download started in the background."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@app.get("/api/podcast_feed")
+async def get_podcast_feed(feed_url: str):
+    """
+    Fetches and parses an RSS feed from the given URL and returns structured data.
+    """
+    try:
+        parsed_data = parse_rss_feed(feed_url)
+        return parsed_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error parsing RSS feed: {e}")
 
 # Catch-all route
 @app.get("/{full_path:path}")

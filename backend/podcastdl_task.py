@@ -4,33 +4,39 @@ import os
 import re
 from datetime import datetime, timedelta
 import time
+import ssl
+
+# --- FIX 1: Bypass SSL certificate verification issues ---
+# This prevents feedparser from failing on certain HTTPS setups
+if hasattr(ssl, '_create_unverified_context'):
+    ssl._create_default_https_context = ssl._create_unverified_context
 
 # Define the podcast RSS feeds
 podcast_rss = {
    "BBC_GlobalNewsPodcast" : "https://podcasts.files.bbci.co.uk/p02nq0gn.rss",
-   "NewYorkTimes_TheDaily" : "https://feeds.simplecast.com/54nAGcIl"
-   #"BBC_World_BusinessReport" : "https://podcasts.files.bbci.co.uk/p02tb8vq.rss"
-   #"Economist_Economist" : "https://access.acast.com/rss/ec380acc-fe13-46a0-991f-a1e508d126f8"
-      }
+   "NewYorkTimes_TheDaily" : "https://feeds.simplecast.com/54nAGcIl",
+   "BBC_WorldBusinessReport" : "https://podcasts.files.bbci.co.uk/p02tb8vq.rss",
+   "Economist_Economist" : "https://access.acast.com/rss/ec380acc-fe13-46a0-991f-a1e508d126f8"
+}
 
-# Define the base directory for all podcasts
+# Define the base directory
 base_dir = "/home/ubuntu/Music/播客/"
 os.makedirs(base_dir, exist_ok=True)
 
-# Define the age threshold for keeping files
-file_age_threshold = 30 # days
+# Define time thresholds
+file_age_threshold = 30 
 seven_days_ago = datetime.now() - timedelta(days=7)
 thirty_days_ago = datetime.now() - timedelta(days=file_age_threshold)
 
+# --- FIX 2: Added User-Agent header ---
+# Servers often block scripts that don't identify as a browser
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
+
 def clean_old_files(directory, age_threshold):
-    """
-    Removes files from a directory that are older than the specified age threshold.
-    """
-    now = datetime.now()
     for filename in os.listdir(directory):
         file_path = os.path.join(directory, filename)
-        
-        # Check if it's a file and not a directory
         if os.path.isfile(file_path):
             file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
             if file_mtime < age_threshold:
@@ -40,75 +46,63 @@ def clean_old_files(directory, age_threshold):
                 except OSError as e:
                     print(f"Error removing file {filename}: {e}")
 
-# --- Main Script Logic ---
-
-# First, run the cleanup for all existing podcast folders
-print("Starting cleanup of old podcast files...")
+print("Starting cleanup...")
 for podcast_name in podcast_rss.keys():
     podcast_dir = os.path.join(base_dir, podcast_name)
     if os.path.exists(podcast_dir):
         clean_old_files(podcast_dir, thirty_days_ago)
-print("Cleanup complete.")
 
-# Now, proceed with downloading new episodes
 for podcast_name, feed_url in podcast_rss.items():
     print(f"\n--- Processing: {podcast_name} ---")
-    
-    # Create a unique subdirectory for each podcast inside the base directory
     podcast_dir = os.path.join(base_dir, podcast_name)
     os.makedirs(podcast_dir, exist_ok=True)
-    print(f"Podcast files will be saved in the '{podcast_dir}' directory.")
     
-    # Parse the RSS feed
-    try:
-        feed = feedparser.parse(feed_url)
-    except Exception as e:
-        print(f"Error parsing feed {podcast_name}: {e}")
+    # --- FIX 3: Robust Parsing & Debugging ---
+    feed = feedparser.parse(feed_url)
+    
+    # Check if feed failed to load
+    if not feed.entries:
+        print(f"⚠️ No entries found for {podcast_name}. Check if the URL is correct or if you are being blocked.")
         continue
     
-    # Iterate through each episode in the feed
+    print(f"Found {len(feed.entries)} total episodes in feed.")
+
     for entry in feed.entries:
-        # Check if the episode was published within the last 7 days
         if hasattr(entry, 'published_parsed'):
-            pub_timestamp = time.mktime(entry.published_parsed)
-            pub_date = datetime.fromtimestamp(pub_timestamp)
+            pub_date = datetime.fromtimestamp(time.mktime(entry.published_parsed))
             
+            # If you want to test the script, you could temporarily comment out these two lines
             if pub_date < seven_days_ago:
-                print(f"Skipping '{entry.title}': Published on {pub_date.strftime('%Y-%m-%d')}, which is older than 7 days.")
                 continue
 
-        # Check for the audio enclosure
         audio_link = None
         if hasattr(entry, 'enclosures'):
             for enclosure in entry.enclosures:
-                if enclosure.get('type') in ['audio/mpeg', 'audio/mp4']:
+                if enclosure.get('type') in ['audio/mpeg', 'audio/mp4', 'audio/x-m4a']:
                     audio_link = enclosure.get('href')
                     break
         
-        # If an audio link is found, download the file
         if audio_link:
             title = entry.title
-            # Sanitize the title and prepend the publication date
             pub_date_str = pub_date.strftime('%Y-%m-%d')
             sanitized_title = re.sub(r'[\\/:*?"<>|]', '', title)
             file_name = f"{pub_date_str} - {sanitized_title}.mp3"
             file_path = os.path.join(podcast_dir, file_name)
             
-            # Check if the file already exists to avoid re-downloading
             if os.path.exists(file_path):
-                print(f"Skipping '{title}': File already exists.")
+                print(f"⏩ Skipping: '{title}' (Already exists)")
                 continue
 
-            print(f"Downloading '{title}'...")
-            
+            print(f"📥 Downloading: '{title}'...")
             try:
-                with requests.get(audio_link, stream=True) as r:
+                # Apply the headers here
+                with requests.get(audio_link, stream=True, headers=headers, timeout=30) as r:
                     r.raise_for_status()
                     with open(file_path, 'wb') as f:
                         for chunk in r.iter_content(chunk_size=8192):
                             f.write(chunk)
-                print(f"✅ Successfully downloaded '{title}'")
-            except requests.exceptions.RequestException as e:
-                print(f"❌ Failed to download '{title}': {e}")
+                print(f"✅ Success!")
+            except Exception as e:
+                print(f"❌ Failed: {e}")
         else:
-            print(f"⚠️ No audio link found for '{entry.title}'")
+            print(f"⚠️ No audio found for '{entry.title}'")

@@ -58,3 +58,19 @@ https://rss.com/tools/find-my-feed/
 
 
 sudo apt install cockpit  default port: 9090
+
+https://rss.com/
+https://rss.com/tools/find-my-feed/
+https://castbox.fm/
+
+The URL-encoded version
+https://music.j205025.org/podcast/https%3A%2F%2Ffeeds.simplecast.com%2F54nAGcIl
+
+https://music.j205025.org/podcast/https%3A%2F%2Fpodcasts.files.bbci.co.uk%2Fp02nq0gn.rss
+
+https://music.j205025.org/podcast/https%3A%2F%2Faccess.acast.com%2Frss%2Fec380acc-fe13-46a0-991f-a1e508d126f8
+
+
+https://music.j205025.org/podcast/https%3A%2F%2Ffeeds.megaphone.fm%2FWMHY2007701094
+
+https://music.j205025.org/podcast/https%3A%2F%2Fpodcastfeeds.nbcnews.com%2Fnbc-meet-the-press
