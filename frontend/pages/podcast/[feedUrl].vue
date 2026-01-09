@@ -52,7 +52,7 @@
                 Your browser does not support the audio element.
               </audio>
               <button @click="playOnPi(episode)" class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                Play on Pi
+                音響播放
               </button>
             </div>
 
