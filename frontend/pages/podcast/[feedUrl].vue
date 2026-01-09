@@ -2,6 +2,11 @@
   <div class="bg-gray-100 font-sans leading-normal tracking-normal min-h-screen dark:bg-gray-900">
     <navbar />
     <main class="container mx-auto p-4">
+      <!-- Notification -->
+      <div v-if="notification.message" :class="['fixed top-20 right-5 p-4 rounded-lg shadow-md z-50', notification.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white']">
+        {{ notification.message }}
+      </div>
+
       <div v-if="pending" class="text-center text-gray-500">Loading podcast...</div>
       <div v-else-if="error" class="text-center text-red-500">Error loading podcast: {{ error.message }}</div>
       <div v-else-if="podcastData && podcastData.feed_info">
@@ -46,6 +51,9 @@
                 <source :src="episode.audio_url" :type="episode.audio_type || 'audio/mpeg'" />
                 Your browser does not support the audio element.
               </audio>
+              <button @click="playOnPi(episode)" class="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Play on Pi
+              </button>
             </div>
 
             <div class="flex items-center space-x-4 text-gray-600">
@@ -102,9 +110,15 @@ interface PodcastData {
   episodes: Episode[];
 }
 
+interface Notification {
+  message: string;
+  type: 'success' | 'error';
+}
+
 const route = useRoute();
 const router = useRouter();
 const config = useRuntimeConfig();
+const notification = ref<Notification>({ message: '', type: 'success' });
 
 onMounted(() => {
   const authToken = localStorage.getItem('authToken');
@@ -112,6 +126,48 @@ onMounted(() => {
     router.push('/login');
   }
 });
+
+const showNotification = (message: string, type: 'success' | 'error' = 'success', duration: number = 3000) => {
+  notification.value = { message, type };
+  setTimeout(() => {
+    notification.value.message = '';
+  }, duration);
+};
+
+const playOnPi = async (episode: Episode) => {
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) {
+    showNotification('You must be logged in to perform this action.', 'error');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${config.public.apiBase}/pi_add_and_play_stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        stream_url: episode.audio_url,
+        title: episode.title,
+        artist: podcastData.value?.feed_info.title || 'Podcast',
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      showNotification(result.message || 'Started playing on Pi.', 'success');
+    } else {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to play on Pi.');
+    }
+  } catch (error) {
+    console.error('Error playing on Pi:', error);
+    showNotification(error.message || 'An unexpected error occurred.', 'error');
+  }
+};
+
 
 const { data: podcastData, pending, error } = await useAsyncData<PodcastData>(
   'podcast',
@@ -121,7 +177,7 @@ const { data: podcastData, pending, error } = await useAsyncData<PodcastData>(
       return null;
     }
     const decodedFeedUrl = decodeURIComponent(feedUrl);
-    const response = await fetch(`${config.public.apiBase}/api/podcast_feed?feed_url=${encodeURIComponent(decodedFeedUrl)}&limit=2`);
+    const response = await fetch(`${config.public.apiBase}/api/podcast_feed?feed_url=${encodeURIComponent(decodedFeedUrl)}&limit=3`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
